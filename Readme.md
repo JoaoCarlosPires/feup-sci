@@ -8,7 +8,7 @@ This project was created during the **1st semester** of the **2nd year** of the 
 
 ## About the Project
 
-This project's name is **Inventory Management** and represents a prototype of a possible CS-IoT platform that integrates ESP32 devices ([M5 Atom Lite](https://docs.m5stack.com/en/core/atom_lite)), AWS IoT Core services and an Outsystems application.
+This project's name is **Inventory Management** and represents a prototype of a possible CS-IoT platform that integrates ESP32 devices ([M5 Atom Lite](https://docs.m5stack.com/en/core/atom_lite)), [AWS IoT Core services](https://aws.amazon.com/pt/iot/) and an [Outsystems](https://www.outsystems.com/) application.
 
 Please see more information on the folder [doc](doc/).
 
