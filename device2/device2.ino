@@ -6,7 +6,7 @@
 #include <Arduino_JSON.h>
 
 // Board Info
-const char ID = "ESP32_Device2";
+const char ID[] = "ESP32_Device2";
 
 // WiFi Info
 const char WIFI_SSID[] = "WIFI_SSID"; // TODO: Change
@@ -50,7 +50,7 @@ const long interval = 10000;
 unsigned long previousMillis = 0;
 
 JSONVar sensorRead;
-JSONVar init;
+JSONVar initial;
 JSONVar productPickup;
 
 SHT3X sht30;
@@ -112,13 +112,13 @@ void setup() {
   for (int i = 0; i < 3; i++)
     mqttClient.subscribe(SUBSCRIBED_TOPICS[i]);
 
-  init["id"] = ID;
+  initial["id"] = ID;
 
-  String jsonString = JSON.stringify(init);
+  String jsonString = JSON.stringify(initial);
   Serial.println(jsonString);
 
   mqttClient.beginMessage(initialization);
-  mqttClient.print(init);
+  mqttClient.print(initial);
   mqttClient.endMessage();
 }
 
@@ -211,6 +211,8 @@ void loop() {
     sensorRead["pressure"] = pressure;
     sensorRead["tvoc"] = 0;
     sensorRead["eco2"] = 0;
+    sensorRead["rawh2"] = 0;
+    sensorRead["rawethanol"] = 0;
 
     String jsonString = JSON.stringify(sensorRead);
     Serial.println(jsonString);
@@ -220,7 +222,7 @@ void loop() {
     mqttClient.endMessage();
   }
 
-  while (1 && button < quantity && requested_quantity != 0 && buton < requested_quantity) {
+  while (1 && button < quantity && requested_quantity != 0 && button < requested_quantity) {
     if (M5.Btn.wasPressed()) {  // Check if the button is pressed
       button++;
       delay(1000);

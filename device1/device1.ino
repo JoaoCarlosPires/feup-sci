@@ -5,9 +5,10 @@
 #include "M5_ENV.h"
 #include <Arduino_JSON.h>
 #include "Adafruit_SGP30.h"
+#include <Wire.h>
 
 // Board Info
-const char ID = "ESP32_Device1";
+const char ID[] = "ESP32_Device1";
 
 // WiFi Info
 const char WIFI_SSID[] = "WIFI_SSID"; // TODO: Change
@@ -51,7 +52,7 @@ const long interval = 10000;
 unsigned long previousMillis = 0;
 
 JSONVar sensorRead;
-JSONVar init;
+JSONVar initial;
 JSONVar productPickup;
 
 Adafruit_SGP30 sgp;
@@ -68,11 +69,16 @@ void setup() {
   Wire.begin(26, 32);         
   delay(50); 
   M5.dis.fillpix(0xff0000);  // Set initial color to red
-  
+
   // initialize the serial port
   Serial.begin(115200);
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
+  }
+
+  if (! sgp.begin()){
+    Serial.println("Sensor not found :(");
+    while (1);
   }
 
   // Connect to Wi-Fi network with SSID and password
@@ -107,13 +113,13 @@ void setup() {
   for (int i = 0; i < 3; i++)
     mqttClient.subscribe(SUBSCRIBED_TOPICS[i]);
 
-  init["id"] = ID;
+  initial["id"] = ID;
 
-  String jsonString = JSON.stringify(init);
+  String jsonString = JSON.stringify(initial);
   Serial.println(jsonString);
 
   mqttClient.beginMessage(initialization);
-  mqttClient.print(init);
+  mqttClient.print(initial);
   mqttClient.endMessage();
 }
 
@@ -168,6 +174,7 @@ void messageHandler(int messageSize) {
   }   
 }
 
+int counter = 0;
 void loop() {
   mqttClient.poll();
 
@@ -197,12 +204,19 @@ void loop() {
         return;
     }
 
+    if (! sgp.IAQmeasureRaw()) {
+      Serial.println("Raw Measurement failed");
+      return;
+    }
+
     sensorRead["id"] = ID;
-    sensorRead["tvoc"] = sgp.TVOC;
-    sensorRead["eco2"] = sgp.eCO2;
     sensorRead["tmp"] = 0;
     sensorRead["hum"] = 0;
     sensorRead["pressure"] = 0;
+    sensorRead["tvoc"] = sgp.TVOC;
+    sensorRead["eco2"] = sgp.eCO2;
+    sensorRead["rawh2"] = sgp.rawH2;
+    sensorRead["rawethanol"] = sgp.rawEthanol;
 
     String jsonString = JSON.stringify(sensorRead);
     Serial.println(jsonString);
@@ -212,7 +226,7 @@ void loop() {
     mqttClient.endMessage();
   }
 
-  while (1 && button < quantity && requested_quantity != 0 && buton < requested_quantity) {
+  while (1 && button < quantity && requested_quantity != 0 && button < requested_quantity) {
     if (M5.Btn.wasPressed()) {  // Check if the button is pressed
       button++;
       delay(1000);
