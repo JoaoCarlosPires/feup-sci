@@ -4,16 +4,17 @@
 #include "M5Atom.h"
 #include "M5_ENV.h"
 #include <Arduino_JSON.h>
+#include <algorithm>
 
 // Board Info
-const char ID[] = "ESP32_Device3";
+String ID = "ESP32_Device3";
 
 // WiFi Info
-const char WIFI_SSID[] = "WIFI_SSID"; // TODO: Change
-const char WIFI_PASSWORD[] = "WIFI_PASSWORD"; // TODO: Change
+const char WIFI_SSID[] = "WIFI_SSID"; //TODO: Change
+const char WIFI_PASSWORD[] = "WIFI_PASSWORD"; //TODO: Change
 
 // AWS IoT Core Connection Information
-const char AWS_IOT_ENDPOINT[] = "AWS_IOT_ENDPOINT"; // TODO: Change
+const char AWS_IOT_ENDPOINT[] = "AWS_IOT_ENDPOINT"; //TODO: Change
 const char* SUBSCRIBED_TOPICS[3]
         = { "info", "new_request", "finished" };
 
@@ -45,9 +46,10 @@ TODO: Change
 WiFiClientSecure wifiClient = WiFiClientSecure();
 MqttClient mqttClient(wifiClient);
 
-//set interval for sending messages = 10 sec
-const long interval = 10000;
+//set interval for sending messages = 30 sec
+const long interval = 30000;
 unsigned long previousMillis = 0;
+unsigned long previousButton = 0;
 
 JSONVar sensorRead;
 JSONVar initial;
@@ -73,7 +75,7 @@ void setup() {
   delay(50); 
   M5.dis.fillpix(0xff0000);  // Set initial color to red
   qmp6988.init();
-  
+
   // initialize the serial port
   Serial.begin(115200);
   while (!Serial) {
@@ -131,6 +133,8 @@ void messageHandler(int messageSize) {
   Serial.println(topic);
 
   String message;
+  String aux_product;
+  String curr_id;
 
   while (mqttClient.available()) {
     message += (char)mqttClient.read();
@@ -141,7 +145,8 @@ void messageHandler(int messageSize) {
 
   if (topic == "info") {
     if (command.hasOwnProperty("id")) {
-      if(((const char*) command["id"]) == ID) {
+      curr_id = (const char*) command["id"];
+      if(curr_id == ID) {
         if (command.hasOwnProperty("product")) {
           product = (const char*) command["product"];
           Serial.println((const char*) command["product"]);
@@ -158,7 +163,8 @@ void messageHandler(int messageSize) {
       Serial.print("Number of products: ");
       Serial.println(num_products);
       for (int i = 0; i < num_products; i++) {
-        if (command["products"][i] == product) {
+        aux_product = (const char*) command["products"][i];
+        if (product == aux_product) {
           requested_quantity = (int) command["quantities"][i];
           if (((int) command["quantities"][i]) <= quantity) {
             M5.dis.fillpix(0x00ff00); // Set color to green
@@ -173,25 +179,48 @@ void messageHandler(int messageSize) {
   }   
 }
 
+int pressed_loop = 0;
 void loop() {
   mqttClient.poll();
 
   unsigned long currentMillis = millis();
 
-  if (button != 0) {
-    productPickup["product"] = product;
-    productPickup["quantity"] = button;
+  if (currentMillis - previousButton > 5000 && pressed_loop) {
+    if (button != 0) {
+      productPickup["id"] = ID;
+      productPickup["product"] = product;
+      productPickup["quantity"] = button;
 
-    String jsonString = JSON.stringify(productPickup);
-    Serial.println(jsonString);
+      String jsonString = JSON.stringify(productPickup);
+      Serial.println(jsonString);
 
-    mqttClient.beginMessage(product_pickup);
-    mqttClient.print(productPickup);
-    mqttClient.endMessage();
+      mqttClient.beginMessage(product_pickup);
+      mqttClient.print(productPickup);
+      mqttClient.endMessage();
 
-    button = 0;
-    requested_quantity = 0;
+      button = 0;
+      requested_quantity = 0;
+      M5.dis.fillpix(0xff0000); // Set color back to red
+    }
+
+    pressed_loop = 0;
+    previousButton = currentMillis;
   }
+
+  M5.update();
+  if (M5.Btn.wasPressed() && button < quantity && requested_quantity != 0 && button < requested_quantity) {
+    if (pressed_loop) {
+      if (currentMillis - previousButton <= 5000) {
+        button++;
+      }
+    } else {
+      pressed_loop = 1;
+      button++;
+    }
+    previousButton = currentMillis;  
+  }
+
+  delay(500);
 
   if (currentMillis - previousMillis >= interval) {
     // save the last time a message was sent
@@ -221,15 +250,4 @@ void loop() {
     mqttClient.print(sensorRead);
     mqttClient.endMessage();
   }
-
-  while (1 && button < quantity && requested_quantity != 0 && button < requested_quantity) {
-    if (M5.Btn.wasPressed()) {  // Check if the button is pressed
-      button++;
-      delay(1000);
-      M5.update();
-    } else {
-      break;
-    }
-  }
-  
-}
+} 
